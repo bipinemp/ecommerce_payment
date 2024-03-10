@@ -5,9 +5,11 @@ import { Response } from "express";
 export const protect = async (req: any, res: Response, next: any) => {
   let token;
   token = req.cookies.jwt;
+  // console.log("REQ Cookies: ", req.cookies);
+  // console.log("Req only: ", req);
   if (token) {
     try {
-      const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+      const decoded: any = jwt.decode(token);
       req.user = await prisma.user.findUnique({
         where: {
           id: decoded.userId,

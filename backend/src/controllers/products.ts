@@ -1,7 +1,6 @@
 import express from "express";
 import prisma from "../db/prisma";
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
-import crypto from "crypto";
 
 type Product = {
   id: string;
@@ -115,18 +114,6 @@ const getActiveProducts = async () => {
   return availableProducts;
 };
 
-const createSignature = (message: string) => {
-  const secret = process.env.SIGNATURE_SECRET!;
-
-  // create a HMAC-SHA356 hash
-  const hmac = crypto.createHmac("sha256", secret);
-  hmac.update(message);
-
-  // get the digest in base64 format
-  const hasnInBase64 = hmac.digest("base64");
-  return hasnInBase64;
-};
-
 export const createOrder = async (
   req: express.Request,
   res: express.Response
@@ -168,60 +155,159 @@ export const confirmCheckout = async (
   req: express.Request,
   res: express.Response
 ) => {
-  try {
-    const { products } = req.body;
-    const data: Product[] = products;
+  const { updatedData, userId } = req.body;
 
-    let activeProducts = await getActiveProducts();
+  const updatedCart = updatedData?.map((item: any) => ({
+    // image: item.image,
+    price: item.amount,
+    name: item.name,
+    productId: item.productId,
+  }));
 
-    try {
-      for (const product of data) {
-        const stripeProduct = activeProducts?.find(
-          (stripeProduct: any) =>
-            stripeProduct?.name?.toLowerCase() == product?.name?.toLowerCase()
-        );
+  const customer = await stripe.customers.create({
+    metadata: {
+      userId,
+      cart: JSON.stringify(updatedCart),
+    },
+  });
 
-        if (stripeProduct == undefined || !stripeProduct) {
-          await stripe.products.create({
-            name: product.name,
-            default_price_data: {
-              unit_amount: product.price * 100,
-              currency: "usd",
+  const line_items = updatedData.map((item: any) => {
+    return {
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: item.name,
+          images: [item.image],
+          metadata: {
+            id: item.productId,
+          },
+        },
+        unit_amount: item.amount * 100,
+      },
+      quantity: item.quantity,
+    };
+  });
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    shipping_address_collection: {
+      allowed_countries: ["US", "CA", "KE"],
+    },
+    shipping_options: [
+      {
+        shipping_rate_data: {
+          type: "fixed_amount",
+          fixed_amount: {
+            amount: 0,
+            currency: "usd",
+          },
+          display_name: "Free shipping",
+          // Delivers between 5-7 business days
+          delivery_estimate: {
+            minimum: {
+              unit: "business_day",
+              value: 5,
             },
-          });
-        }
-      }
-    } catch (error) {
-      return res.status(400).json({ error: "Error on creating a new product" });
-    }
+            maximum: {
+              unit: "business_day",
+              value: 7,
+            },
+          },
+        },
+      },
+      {
+        shipping_rate_data: {
+          type: "fixed_amount",
+          fixed_amount: {
+            amount: 1500,
+            currency: "usd",
+          },
+          display_name: "Next day air",
+          // Delivers in exactly 1 business day
+          delivery_estimate: {
+            minimum: {
+              unit: "business_day",
+              value: 1,
+            },
+            maximum: {
+              unit: "business_day",
+              value: 1,
+            },
+          },
+        },
+      },
+    ],
+    // phone_number_collection: {
+    //   enabled: true,
+    // },
+    customer: customer.id,
+    line_items,
+    mode: "payment",
+    success_url: `${process.env.CLIENT_URL}`,
+    cancel_url: `${process.env.CLIENT_URL}`,
+  });
 
-    activeProducts = await getActiveProducts();
-    let stripeItems: any = [];
-
-    for (const product of data) {
-      const stripeProduct = activeProducts?.find(
-        (prod: any) => prod?.name?.toLowerCase() == product?.name?.toLowerCase()
-      );
-
-      if (stripeProduct) {
-        stripeItems.push({
-          price: stripeProduct?.default_price,
-          quantity: product?.quantity,
-        });
-      }
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      line_items: stripeItems,
-      mode: "payment",
-      submit_type: "pay",
-      payment_method_types: ["card"],
-      success_url: "http://localhost:3000/success",
-      cancel_url: "http://localhost:3000/cancel",
-    });
-
-    return res.status(200).json({ url: session.url });
-  } catch (error) {
-    return res.sendStatus(400);
-  }
+  res.json({ url: session.url });
 };
+
+// export const confirmCheckout = async (
+//   req: express.Request,
+//   res: express.Response
+// ) => {
+//   try {
+//     const { products } = req.body;
+//     const data: Product[] = products;
+
+//     let activeProducts = await getActiveProducts();
+
+//     try {
+//       for (const product of data) {
+//         const stripeProduct = activeProducts?.find(
+//           (stripeProduct: any) =>
+//             stripeProduct?.name?.toLowerCase() == product?.name?.toLowerCase()
+//         );
+
+//         if (stripeProduct == undefined || !stripeProduct) {
+//           await stripe.products.create({
+//             name: product.name,
+//             default_price_data: {
+//               unit_amount: product.price * 100,
+//               currency: "usd",
+//             },
+//           });
+//         }
+//       }
+//     } catch (error) {
+//       return res.status(400).json({ error: "Error on creating a new product" });
+//     }
+
+//     activeProducts = await getActiveProducts();
+//     let stripeItems: any = [];
+
+//     for (const product of data) {
+//       const stripeProduct = activeProducts?.find(
+//         (prod: any) => prod?.name?.toLowerCase() == product?.name?.toLowerCase()
+//       );
+
+//       if (stripeProduct) {
+//         stripeItems.push({
+//           price: stripeProduct?.default_price,
+//           quantity: product?.quantity,
+//         });
+//       }
+//     }
+
+//     const session = await stripe.checkout.sessions.create({
+//       line_items: stripeItems,
+//       mode: "payment",
+//       submit_type: "pay",
+//       payment_method_types: ["card"],
+//       success_url: "http://localhost:3000/success",
+//       cancel_url: "http://localhost:3000/cancel",
+//     });
+
+//     return res.status(200).json({ url: session.url });
+//   } catch (error) {
+//     return res.sendStatus(400);
+//   }
+// };

@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
 import http from "http";
 import prisma from "./db/prisma";
@@ -10,13 +11,13 @@ const PORT = process.env.PORT || 8000;
 const app = express();
 
 // Middlewares
+app.use(cookieParser());
 app.use(
   cors({
     origin: ["http://localhost:3000", "http://localhost:5173"],
     credentials: true,
   })
 );
-app.use(bodyParser.json());
 
 // Creating a server
 const server = http.createServer(app);
@@ -34,5 +35,9 @@ app.get("/api/prisma", (req, res) => {
 });
 
 // router middleware
+app.use("/api/stripe", router());
+
+app.use(bodyParser.json());
+
 app.use("/api", router());
 app.use("/api/users", router());

@@ -25,7 +25,7 @@ export default function RootLayout({
           <Navbar />
           {children}
           <Cart />
-          {/* <UserDataFromJWT /> */}
+          <UserDataFromJWT />
         </QueryProvider>
       </body>
     </html>

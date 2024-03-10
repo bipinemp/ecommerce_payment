@@ -13,6 +13,6 @@ export default (router: express.Router) => {
   // Cart
   router.post("/cart", addToCart);
   router.get("/cartitems", getAllCartItems);
-  router.post("/checkout", confirmCheckout);
+  router.post("/stripecheckout", confirmCheckout);
   router.post("/orders/create", createOrder);
 };

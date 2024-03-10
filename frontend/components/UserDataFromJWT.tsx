@@ -1,35 +1,57 @@
-import React from "react";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-import SetUserId from "./SetUserId";
+"use client";
 
-interface JWTPayload {
-  userId: string;
-  iat: number;
-  exp: number;
-}
+import { useUserId } from "@/store/store";
+import axios from "axios";
+import React, { useEffect } from "react";
+// import { cookies } from "next/headers";
+// import jwt from "jsonwebtoken";
+// import SetUserId from "./SetUserId";
 
-export const getJwtSecretKey = () => {
-  const secret = process.env.JWT_SECRET;
+// interface JWTPayload {
+//   userId: string;
+//   iat: number;
+//   exp: number;
+// }
 
-  if (!secret || secret.length === 0) {
-    throw new Error("The Env. Variable for JWT SECRET is not set");
-  }
+// export const getJwtSecretKey = () => {
+//   const secret = process.env.JWT_SECRET;
 
-  return secret;
-};
+//   if (!secret || secret.length === 0) {
+//     throw new Error("The Env. Variable for JWT SECRET is not set");
+//   }
+
+//   return secret;
+// };
 
 const UserDataFromJWT = () => {
-  const cookieStore = cookies();
-  const token = cookieStore.get("jwt")?.value.toString();
+  const { setUserId } = useUserId();
 
-  const { userId } = (token && jwt.decode(token)) as JWTPayload;
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:8000/api/users/profile",
+          {
+            withCredentials: true,
+          }
+        );
 
-  return (
-    <>
-      <SetUserId userId={userId || ""} />
-    </>
-  );
+        if (response.status === 200) {
+          setUserId(response.data.user.id);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    fetchUser();
+  }, []);
+  // const cookieStore = cookies();
+  // const token = cookieStore.get("jwt")?.value.toString();
+
+  // const { userId } = (token && jwt.decode(token)) as JWTPayload;
+
+  return <>{/* <SetUserId userId={userId || ""} /> */}</>;
 };
 
 export default UserDataFromJWT;

@@ -16,6 +16,7 @@ model User {
   emailVerified Boolean?
   createdAt     DateTime      @default(now())
   CartItem      CartItem[]
+  // Transaction   Transaction[]
   Transaction   Transaction[]
 }
 
@@ -24,7 +25,7 @@ model Product {
   name        String
   price       Int
   image       String?
-  Stock       Int
+  Stock       Int?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   CartItem    CartItem[]
@@ -47,21 +48,24 @@ model CartItem {
 }
 
 model Transaction {
-  id       String  @id @default(uuid())
-  currency String?
+  id String @id @default(uuid())
 
-  amount        Int
-  paymentStatus String
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  paymentMethod String
+  customerId String?
 
-  customer   User   @relation(fields: [customerId], references: [id])
-  customerId String
+  paymentIntentId String
 
-  product   Product @relation(fields: [productId], references: [id])
-  productId String
+  products Product[]
 
-  quantity Int
+  subTotal Int
+  Total    Int
+
+  shipping Json
+
+  delivery_status String @default("pending")
+  payment_status  String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

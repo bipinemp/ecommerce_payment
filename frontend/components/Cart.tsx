@@ -9,7 +9,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useCartOpenStore } from "@/store/store";
+import { useCartOpenStore, useUserId } from "@/store/store";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "./ui/button";
 import Image from "next/image";
@@ -20,6 +20,7 @@ import getStipePromise from "@/lib/stripe";
 
 const Cart = () => {
   const { isCartOpen, closeCart, openCart } = useCartOpenStore();
+  const { userId } = useUserId();
 
   const handleOpenChange = (newOpenState: boolean) => {
     if (newOpenState) {
@@ -46,30 +47,55 @@ const Cart = () => {
 
   const checkout = async () => {
     const url = `${process.env.NEXT_PUBLIC_BASE_URL}/`;
-    // const stripe = await getStipePromise();
 
     const updatedData = data?.map((item) => ({
       amount: item.product.price,
-      paymentStatus: "created",
+      paymentStatus: "unpaid",
       quantity: item.quantity,
       customerId: item.user.id,
       productId: item.product.id,
+      name: item.product.name,
+      image: item.product.image,
+      paymentMethod: "stripe",
     }));
 
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/checkout`,
-        updatedData
+        `${process.env.NEXT_PUBLIC_BASE_URL}/stripecheckout`,
+        { updatedData, userId: userId }
       );
-      console.log(response);
-      if (response) {
-        if (response?.data.url) {
-          window.location.href = response?.data?.url;
-        }
+
+      if (response.data.url) {
+        window.location.href = response.data.url;
       }
     } catch (error) {
       console.log(error);
     }
+
+    // const stripe = await getStipePromise();
+
+    // const updatedData = data?.map((item) => ({
+    //   amount: item.product.price,
+    //   paymentStatus: "created",
+    //   quantity: item.quantity,
+    //   customerId: item.user.id,
+    //   productId: item.product.id,
+    // }));
+
+    // try {
+    //   const response = await axios.post(
+    //     `http://localhost:8000/api/checkout`,
+    //     updatedData
+    //   );
+    //   console.log(response);
+    //   if (response) {
+    //     if (response?.data.url) {
+    //       window.location.href = response?.data?.url;
+    //     }
+    //   }
+    // } catch (error) {
+    //   console.log(error);
+    // }
   };
 
   return (
@@ -141,7 +167,7 @@ const Cart = () => {
                 className="text-lg font-bold"
                 onClick={checkout}
               >
-                Checkout using ESewa
+                Checkout using Stripe
               </Button>
             </SheetDescription>
           )}
